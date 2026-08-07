@@ -1,28 +1,25 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./src/infrastructure/database/postgres'); // Importamos la conexión DB
+const authRoutes = require('./src/infrastructure/web/auth.routes');
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-
-// Ruta de prueba de salud de la API y de la Base de Datos
-app.get('/api/health', async (req, res) => {
-  try {
-    const result = await db.query('SELECT NOW()');
-    res.json({ 
-      status: 'ok', 
-      message: 'Backend y PostgreSQL conectados correctamente',
-      db_time: result.rows[0].now 
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
-  }
+// Ruta raíz de prueba para evitar el "Cannot GET /"
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Servidor Backend ejecutándose correctamente'
+  });
 });
 
+// Rutas de la API
+app.use('/api/auth', authRoutes);
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
 });
