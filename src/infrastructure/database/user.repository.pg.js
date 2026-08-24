@@ -8,7 +8,7 @@ class UserRepositoryPg extends IUserRepository {
       SELECT u.id, u.role_id, r.name AS role_name, u.full_name, u.email, u.password_hash, u.phone, u.is_active
       FROM users u
       INNER JOIN roles r ON u.role_id = r.id
-      WHERE u.email = $1;
+      WHERE LOWER(TRIM(u.email)) = $1;
     `;
     const result = await db.query(query, [email]);
     if (result.rows.length === 0) return null;
@@ -35,7 +35,7 @@ class UserRepositoryPg extends IUserRepository {
     return result.rows[0].id;
   }
 
-  async create({ fullName, email, passwordHash, phone, roleName = 'CLIENTE' }) {
+  async create({ fullName, email, passwordHash, phone, roleName = 'CLIENT' }) {
     const roleId = await this.getRoleIdByName(roleName);
 
     const query = `
