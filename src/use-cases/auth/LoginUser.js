@@ -17,6 +17,10 @@ class LoginUser {
 
     const isPasswordValid = await this.passwordHasher.compare(cleanPassword, user.passwordHash);
 
+    if (!isPasswordValid) {
+      throw new Error('Credenciales inválidas');
+    }
+
     const payload = {
       id: user.id,
       role: user.roleName,

@@ -5,8 +5,10 @@ class RegisterUser {
   }
 
   async execute({ fullName, email, phone, password }) {
+    const cleanEmail = email.trim().toLowerCase();
+
     // 1. Validar si el usuario ya existe
-    const existingUser = await this.userRepository.findByEmail(email);
+    const existingUser = await this.userRepository.findByEmail(cleanEmail);
     if (existingUser) {
       throw new Error('El correo electrónico ya está registrado.');
     }
@@ -17,7 +19,7 @@ class RegisterUser {
     // 3. Crear usuario con rol CLIENTE por defecto
     const newUser = await this.userRepository.create({
       fullName,
-      email,
+      email: cleanEmail,
       phone,
       passwordHash,
       roleName: 'CLIENT'
