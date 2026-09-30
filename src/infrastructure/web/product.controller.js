@@ -1,10 +1,11 @@
 class ProductController {
-  constructor({ createProduct, getProducts, getProductById, updateProduct, toggleProductStatus }) {
+  constructor({ createProduct, getProducts, getProductById, updateProduct, toggleProductStatus, deleteProduct }) {
     this.createProduct = createProduct;
     this.getProducts = getProducts;
     this.getProductById = getProductById;
     this.updateProduct = updateProduct;
     this.toggleProductStatus = toggleProductStatus;
+    this.deleteProduct = deleteProduct;
   }
 
   async create(req, res) {
@@ -59,5 +60,13 @@ class ProductController {
     }
 }
   
+  async delete(req, res) {
+    try {
+      const result = await this.deleteProduct.execute(req.params.id);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message });
+    }
+  }
 }
 module.exports = ProductController;

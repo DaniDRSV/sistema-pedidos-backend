@@ -5,6 +5,7 @@ const cors = require('cors');
 const authRoutes = require('./src/infrastructure/web/auth.routes');
 const categoryRoutes = require('./src/infrastructure/web/category.routes');
 const productRoutes = require('./src/infrastructure/web/product.routes');
+const orderRoutes = require('./src/infrastructure/web/order.routes');
 
 // Middleware
 const { authenticate, authorizeRoles } = require('./src/infrastructure/web/middlewares/auth.middleware');
@@ -13,6 +14,7 @@ const { authenticate, authorizeRoles } = require('./src/infrastructure/web/middl
 // Repositories 
 const CategoryRepositoryPG = require('./src/infrastructure/database/category.repository.pg');
 const ProductRepositoryPG = require('./src/infrastructure/database/product.repository.pg');
+const OrderRepositoryPG = require('./src/infrastructure/database/order.repository.pg');
 
 
 // Use Cases Import
@@ -22,17 +24,23 @@ const GetCategories = require('./src/use-cases/categories/GetCategories');
 const GetCategoryById = require('./src/use-cases/categories/GetCategoryById');
 const UpdateCategory = require('./src/use-cases/categories/UpdateCategory');
 const ToggleCategoryStatus = require('./src/use-cases/categories/ToggleCategoryStatus');
+const DeleteCategory = require('./src/use-cases/categories/DeleteCategory');
 // Products
 const CreateProduct = require('./src/use-cases/products/CreateProduct');
 const GetProducts = require('./src/use-cases/products/GetProducts');
 const GetProductById = require('./src/use-cases/products/GetProductById');
 const UpdateProduct = require('./src/use-cases/products/UpdateProduct');
 const ToggleProductStatus = require('./src/use-cases/products/ToggleProductStatus');
+const DeleteProduct = require('./src/use-cases/products/DeleteProduct');
+// Orders
+const CreateOrder = require('./src/use-cases/orders/CreateOrder');
+const GetMyOrders = require('./src/use-cases/orders/GetMyOrders');
 
 
 // Controllers
 const CategoryController = require('./src/infrastructure/web/category.controller');
 const ProductController = require('./src/infrastructure/web/product.controller');
+const OrderController = require('./src/infrastructure/web/order.controller');
 
 const app = express();
 
@@ -43,6 +51,7 @@ app.use(express.json());
 // Repsositories instantiation
 const categoryRepository = new CategoryRepositoryPG();
 const productRepository = new ProductRepositoryPG();
+const orderRepository = new OrderRepositoryPG();
 
 
 // Use Cases instantiation
@@ -52,22 +61,29 @@ const getCategories = new GetCategories({ categoryRepository });
 const getCategoryById = new GetCategoryById({ categoryRepository });
 const updateCategory = new UpdateCategory({ categoryRepository });
 const toggleCategoryStatus = new ToggleCategoryStatus({categoryRepository});
+const deleteCategory = new DeleteCategory({ categoryRepository });
 // Products
 const createProduct = new CreateProduct({ productRepository, categoryRepository });
 const getProducts = new GetProducts({ productRepository });
 const getProductById = new GetProductById({ productRepository });
-const updateProduct = new UpdateProduct({ productRepository });
+const updateProduct = new UpdateProduct({ productRepository, categoryRepository });
 const toggleProductStatus = new ToggleProductStatus({ productRepository });
+const deleteProduct = new DeleteProduct({ productRepository });
+// Orders
+const createOrder = new CreateOrder({ orderRepository });
+const getMyOrders = new GetMyOrders({ orderRepository });
 
 // Controllers instantiation
 // categories
 const categoryController = new CategoryController({
-  createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus
+  createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus, deleteCategory
 });
 // products
 const productController = new ProductController({
-  createProduct, getProducts, getProductById, updateProduct, toggleProductStatus
+  createProduct, getProducts, getProductById, updateProduct, toggleProductStatus, deleteProduct
 });
+// orders
+const orderController = new OrderController({ createOrder, getMyOrders });
 
 
 
@@ -93,6 +109,15 @@ app.use(
   '/api/products',
   productRoutes(
     productController,
+    authenticate,
+    authorizeRoles
+  )
+);
+
+app.use(
+  '/api/orders',
+  orderRoutes(
+    orderController,
     authenticate,
     authorizeRoles
   )

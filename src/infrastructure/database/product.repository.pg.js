@@ -21,6 +21,11 @@ class ProductRepositoryPG extends IProductRepository {
       values.push(filters.categoryId);
       query += ` AND category_id = $${values.length}`;
     }
+
+    if (filters.isActive !== undefined && filters.isActive !== 'all') {
+      values.push(filters.isActive === true || filters.isActive === 'true');
+      query += ` AND is_active = $${values.length}`;
+    }
     
     query += ' ORDER BY id DESC';
     const { rows } = await pool.query(query, values);
@@ -62,6 +67,20 @@ class ProductRepositoryPG extends IProductRepository {
     }
 
     return new Product(this.mapToEntity(rows[0]));
+  }
+
+  async delete(id) {
+    try {
+      const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [id]);
+      return rowCount > 0;
+    } catch (error) {
+      if (error.code === '23503') {
+        const conflict = new Error('No se puede eliminar: el producto tiene pedidos. Desactívelo en su lugar.');
+        conflict.statusCode = 409;
+        throw conflict;
+      }
+      throw error;
+    }
   }
 
   mapToEntity(dbRow) {
