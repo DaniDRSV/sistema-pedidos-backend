@@ -34,5 +34,12 @@ module.exports = (categoryController, authenticate, authorizeRoles) => {
     (req, res) => categoryController.toggleStatus(req, res)
     );
 
+  router.delete(
+    '/:id',
+    authenticate,
+    authorizeRoles('ADMIN'),
+    (req, res) => categoryController.delete(req, res)
+  );
+
   return router;
 };

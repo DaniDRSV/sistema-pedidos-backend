@@ -19,8 +19,14 @@ class CategoryRepositoryPG extends ICategoryRepository {
     return new Category(this.mapToEntity(rows[0]));
   }
 
-  async findAll() {
-    const { rows } = await pool.query('SELECT * FROM categories ORDER BY id DESC');
+  async findAll(filters = {}) {
+    const values = [];
+    let query = 'SELECT * FROM categories';
+    if (filters.isActive !== undefined && filters.isActive !== 'all') {
+      values.push(filters.isActive === true || filters.isActive === 'true');
+      query += ' WHERE is_active = $1';
+    }
+    const { rows } = await pool.query(`${query} ORDER BY id DESC`, values);
     return rows.map(row => new Category(this.mapToEntity(row)));
   }
 
@@ -49,6 +55,16 @@ class CategoryRepositoryPG extends ICategoryRepository {
 
     return rows[0];
     }
+
+  async countProducts(id) {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS total FROM products WHERE category_id = $1', [id]);
+    return rows[0].total;
+  }
+
+  async delete(id) {
+    const { rowCount } = await pool.query('DELETE FROM categories WHERE id = $1', [id]);
+    return rowCount > 0;
+  }
 
   mapToEntity(dbRow) {
     return {

@@ -7,6 +7,10 @@ class UpdateProduct {
   async execute(id, { categoryId, sku, name, description, price, stock, imageUrl, isActive }) {
     const existingProduct = await this.productRepository.findById(id);
     if (!existingProduct) throw new Error('Producto no encontrado.');
+    if (price !== undefined && !(Number(price) > 0)) throw new Error('El precio debe ser mayor que 0.');
+    if (stock !== undefined && !(Number.isInteger(Number(stock)) && Number(stock) >= 0)) {
+      throw new Error('El stock debe ser un número entero mayor o igual a 0.');
+    }
 
     // Si se intenta cambiar la categoría, validamos que la nueva exista
     if (categoryId && categoryId !== existingProduct.categoryId) {

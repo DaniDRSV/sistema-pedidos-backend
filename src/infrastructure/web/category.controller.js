@@ -1,10 +1,11 @@
 class CategoryController {
-  constructor({ createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus }) {
+  constructor({ createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus, deleteCategory }) {
     this.createCategory = createCategory;
     this.getCategories = getCategories;
     this.getCategoryById = getCategoryById;
     this.updateCategory = updateCategory;
     this.toggleCategoryStatus = toggleCategoryStatus;
+    this.deleteCategory = deleteCategory;
   }
 
   async create(req, res) {
@@ -18,7 +19,7 @@ class CategoryController {
 
   async getAll(req, res) {
     try {
-      const result = await this.getCategories.execute();
+      const result = await this.getCategories.execute({ isActive: req.query.isActive });
       res.status(200).json(result);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -54,5 +55,14 @@ class CategoryController {
         });
     }
     }
+
+  async delete(req, res) {
+    try {
+      const result = await this.deleteCategory.execute(req.params.id);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(error.statusCode || 500).json({ error: error.message });
+    }
+  }
 }
 module.exports = CategoryController;

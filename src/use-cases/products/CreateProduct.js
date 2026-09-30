@@ -5,7 +5,11 @@ class CreateProduct {
   }
 
   async execute({ categoryId, sku, name, description, price, stock, imageUrl }) {
-    if (!name || !price || !sku) throw new Error('Nombre, SKU y precio son obligatorios.');
+    if (!name || !sku) throw new Error('Nombre y SKU son obligatorios.');
+    if (!(Number(price) > 0)) throw new Error('El precio debe ser mayor que 0.');
+    if (stock !== undefined && !(Number.isInteger(Number(stock)) && Number(stock) >= 0)) {
+      throw new Error('El stock debe ser un número entero mayor o igual a 0.');
+    }
 
     // Validar que la categoría exista
     const category = await this.categoryRepository.findById(categoryId);
