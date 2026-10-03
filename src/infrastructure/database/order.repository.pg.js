@@ -81,18 +81,132 @@ class OrderRepositoryPG extends IOrderRepository {
 
   async findByClientId(clientId) {
     const { rows } = await pool.query(
-      `SELECT o.*, COALESCE(json_agg(json_build_object(
+      `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        COALESCE(json_agg(json_build_object(
           'productId', i.product_id, 'productName', i.product_name_snapshot,
           'quantity', i.quantity, 'unitPrice', i.unit_price
         ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
        FROM orders o
+       LEFT JOIN users u ON u.id = o.client_id
        LEFT JOIN order_items i ON i.order_id = o.id
        WHERE o.client_id = $1
-       GROUP BY o.id
+       GROUP BY o.id, u.full_name, u.email
        ORDER BY o.created_at DESC`,
       [clientId]
     );
     return rows.map((row) => this.mapToEntity(row, row.items));
+  }
+
+  async findById(id) {
+    const { rows } = await pool.query(
+      `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        COALESCE(json_agg(json_build_object(
+          'productId', i.product_id, 'productName', i.product_name_snapshot,
+          'quantity', i.quantity, 'unitPrice', i.unit_price
+        ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN order_items i ON i.order_id = o.id
+       WHERE o.id = $1
+       GROUP BY o.id, u.full_name, u.email`,
+      [id]
+    );
+    if (rows.length === 0) return null;
+    return this.mapToEntity(rows[0], rows[0].items);
+  }
+
+  async findPreparationOrders({ status } = {}) {
+    let whereClause = '';
+    const params = [];
+
+    if (status && status !== 'ALL') {
+      params.push(status.toUpperCase());
+      whereClause = 'WHERE o.status = $1';
+    } else {
+      whereClause = "WHERE o.status = ANY(ARRAY['CREADO', 'PAGADO', 'EN_PREPARACION', 'PENDING', 'PREPARING', 'READY'])";
+    }
+
+    const { rows } = await pool.query(
+      `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        COALESCE(json_agg(json_build_object(
+          'productId', i.product_id, 'productName', i.product_name_snapshot,
+          'quantity', i.quantity, 'unitPrice', i.unit_price
+        ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN order_items i ON i.order_id = o.id
+       ${whereClause}
+       GROUP BY o.id, u.full_name, u.email
+       ORDER BY 
+         CASE o.status 
+           WHEN 'EN_PREPARACION' THEN 1
+           WHEN 'PREPARING' THEN 1
+           WHEN 'PAGADO' THEN 2
+           WHEN 'CREADO' THEN 3
+           WHEN 'PENDING' THEN 3 
+           WHEN 'READY' THEN 4 
+           ELSE 5 
+         END,
+         o.created_at ASC`,
+      params
+    );
+
+    return rows.map((row) => this.mapToEntity(row, row.items));
+  }
+
+  async updateStatus(id, newStatus, { paymentStatus, notes } = {}) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      let extraSet = '';
+      if (newStatus === 'EN_PREPARACION' || newStatus === 'READY' || newStatus === 'PREPARING') {
+        extraSet += ', prepared_at = COALESCE(prepared_at, CURRENT_TIMESTAMP)';
+      } else if (newStatus === 'EN_CAMINO' || newStatus === 'IN_DELIVERY') {
+        extraSet += ', shipped_at = COALESCE(shipped_at, CURRENT_TIMESTAMP)';
+      } else if (newStatus === 'ENTREGADO' || newStatus === 'DELIVERED') {
+        extraSet += ', delivered_at = COALESCE(delivered_at, CURRENT_TIMESTAMP)';
+      } else if (newStatus === 'CANCELADO' || newStatus === 'CANCELLED') {
+        extraSet += ', cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP)';
+        const { rows: items } = await client.query(
+          'SELECT product_id, quantity FROM order_items WHERE order_id = $1',
+          [id]
+        );
+        for (const item of items) {
+          await client.query(
+            'UPDATE products SET stock = stock + $1 WHERE id = $2',
+            [item.quantity, item.product_id]
+          );
+        }
+      }
+
+      if (paymentStatus) {
+        extraSet += `, payment_status = '${paymentStatus.replace(/'/g, "''")}'`;
+      }
+      if (notes) {
+        extraSet += `, notes = '${notes.replace(/'/g, "''")}'`;
+      }
+
+      const updateQuery = `
+        UPDATE orders 
+        SET status = $1 ${extraSet}
+        WHERE id = $2
+        RETURNING *;
+      `;
+      const { rows } = await client.query(updateQuery, [newStatus, id]);
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      await client.query('COMMIT');
+      return this.findById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   mapToEntity(row, items) {
@@ -100,17 +214,23 @@ class OrderRepositoryPG extends IOrderRepository {
       id: row.id,
       orderNumber: row.order_number,
       clientId: row.client_id,
+      clientName: row.client_name || null,
+      clientEmail: row.client_email || null,
       status: row.status,
       paymentMethod: row.payment_method,
       paymentStatus: row.payment_status,
       addressSnapshot: row.address_snapshot,
       phoneSnapshot: row.phone_snapshot,
       subtotal: parseFloat(row.subtotal),
-      deliveryFee: parseFloat(row.delivery_fee),
+      deliveryFee: parseFloat(row.delivery_fee || 0),
       total: parseFloat(row.total),
       notes: row.notes,
       createdAt: row.created_at,
-      items: items.map((item) => ({
+      preparedAt: row.prepared_at,
+      shippedAt: row.shipped_at,
+      deliveredAt: row.delivered_at,
+      cancelledAt: row.cancelled_at,
+      items: (items || []).map((item) => ({
         productId: item.productId,
         productName: item.productName,
         quantity: Number(item.quantity),
