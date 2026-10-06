@@ -8,6 +8,10 @@ class Order {
     clientId,
     clientName,
     clientEmail,
+    deliveryId,
+    deliveryName,
+    deliveryEmail,
+    deliveryPhone,
     status = OrderState.CREADO,
     paymentMethod,
     paymentStatus,
@@ -29,6 +33,15 @@ class Order {
     this.clientId = clientId;
     this.clientName = clientName;
     this.clientEmail = clientEmail;
+    this.deliveryId = deliveryId || null;
+    this.delivery = deliveryId
+      ? {
+        id: deliveryId,
+        fullName: deliveryName || null,
+        email: deliveryEmail || null,
+        phone: deliveryPhone || null
+      }
+      : null;
     this.status = OrderStateMachine.normalize(status || OrderState.CREADO);
     this.paymentMethod = paymentMethod;
     this.paymentStatus = paymentStatus;
@@ -117,6 +130,8 @@ class Order {
       clientId: this.clientId,
       clientName: this.clientName,
       clientEmail: this.clientEmail,
+      deliveryId: this.deliveryId,
+      delivery: this.delivery,
       status: this.status,
       allowedTransitions: this.getAllowedTransitions(),
       paymentMethod: this.paymentMethod,

@@ -1,5 +1,5 @@
 class User {
-  constructor({ id, roleId, roleName, fullName, email, passwordHash, phone, isActive, createdAt }) {
+  constructor({ id, roleId, roleName, fullName, email, passwordHash, phone, isActive, createdAt, activeOrders }) {
     this.id = id;
     this.roleId = roleId;
     this.roleName = roleName;
@@ -9,6 +9,7 @@ class User {
     this.phone = phone;
     this.isActive = isActive ?? true;
     this.createdAt = createdAt;
+    this.activeOrders = Number(activeOrders || 0);
   }
 
 
@@ -18,7 +19,9 @@ class User {
       role: this.roleName,
       fullName: this.fullName,
       email: this.email,
-      phone: this.phone
+      phone: this.phone,
+      available: this.isActive && this.activeOrders === 0,
+      activeOrders: this.activeOrders
     };
   }
 }

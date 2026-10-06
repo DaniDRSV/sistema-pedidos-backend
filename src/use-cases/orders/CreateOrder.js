@@ -14,7 +14,7 @@ class CreateOrder {
     this.orderRepository = orderRepository;
   }
 
-  async execute({ clientId, items, addressId, address, notes }, options = {}) {
+  async execute({ clientId, items, addressId, address, notes, paymentMethod }, options = {}) {
     if (!Array.isArray(items) || items.length === 0) throw fail('El carrito está vacío.', 400);
 
     const cart = new Map();
@@ -54,8 +54,23 @@ class CreateOrder {
       );
     };
 
+    const normalizedPaymentMethod = String(paymentMethod || 'CASH_ON_DELIVERY').trim().toUpperCase();
+    if (!['CARD', 'CASH_ON_DELIVERY'].includes(normalizedPaymentMethod)) {
+      throw fail('El método de pago debe ser CARD o CASH_ON_DELIVERY.', 400);
+    }
+
+    const isCardPayment = normalizedPaymentMethod === 'CARD';
     const order = await this.orderRepository.createWithItems(
-      { clientId, items: [...cart.values()], addressSnapshot, phoneSnapshot: info.phone, notes: notes?.trim() || null },
+      {
+        clientId,
+        items: [...cart.values()],
+        addressSnapshot,
+        phoneSnapshot: info.phone,
+        notes: notes?.trim() || null,
+        paymentMethod: normalizedPaymentMethod,
+        paymentStatus: isCardPayment ? 'PAID' : 'PENDING',
+        status: isCardPayment ? 'PAGADO' : 'CREADO'
+      },
       buildTotals,
       options
     );
