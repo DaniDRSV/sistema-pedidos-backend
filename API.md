@@ -42,3 +42,18 @@ Todas las rutas de esta sección requieren `Authorization: Bearer <token>`.
 `POST /api/orders` también acepta `paymentMethod` con los valores `CARD` y `CASH_ON_DELIVERY`. El primero crea el pedido como `PAGADO`; el segundo como `CREADO` y pago `PENDING`.
 
 Las respuestas de pedidos incluyen ahora `deliveryId` y el objeto `delivery` cuando hay un repartidor asignado.
+
+# API de usuarios
+
+Todas las rutas requieren rol `ADMIN`.
+
+| Método y ruta | Descripción |
+| --- | --- |
+| `GET /api/users?role=&search=` | Lista usuarios. `role`: `ADMIN`, `CLIENT` o `DELIVERY`. Incluye pedidos y total gastado (clientes) y entregas activas y completadas (repartidores). |
+| `GET /api/users/:id` | Detalle de un usuario. |
+| `GET /api/users/:id/orders` | Pedidos del cliente o entregas del repartidor. |
+| `POST /api/users` | Crea un usuario. Body: `{ "fullName", "email", "phone", "password", "role", "deliveryProfile": { "vehicleType", "licensePlate", "driverLicense" } }`. `vehicleType`: `MOTORCYCLE`, `CAR` o `BICYCLE`. |
+| `PUT /api/users/:id` | Edita nombre, correo, teléfono, rol y perfil de repartidor. |
+| `PATCH /api/users/:id/status` | Activa o desactiva. No se permite desactivar la propia cuenta, al último administrador activo ni a un repartidor con entregas en curso. |
+| `PATCH /api/users/:id/availability` | Marca a un repartidor como disponible o no disponible para asignaciones. |
+| `PATCH /api/users/:id/password` | Restablece la contraseña. Body: `{ "password" }`. |

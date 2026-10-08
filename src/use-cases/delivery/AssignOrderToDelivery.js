@@ -23,6 +23,9 @@ class AssignOrderToDelivery {
     ]);
     if (!order) throw new AppError(`El pedido #${parsedOrderId} no fue encontrado.`, 404);
     if (!delivery) throw new AppError('El repartidor no existe, no está activo o no tiene rol DELIVERY.', 404);
+    if (delivery.deliveryProfile && !delivery.deliveryProfile.isAvailable) {
+      throw new AppError('El repartidor está marcado como no disponible.', 409);
+    }
     if (order.isTerminal() || order.status === OrderState.EN_CAMINO) {
       throw new AppError('El pedido ya no puede asignarse a un repartidor.', 409);
     }
