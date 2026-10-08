@@ -1,3 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
+
 class UpdateCategory {
   constructor({ categoryRepository }) {
     this.categoryRepository = categoryRepository;
@@ -5,7 +7,7 @@ class UpdateCategory {
 
   async execute(id, { name, description, imageUrl, isActive }) {
     const existingCategory = await this.categoryRepository.findById(id);
-    if (!existingCategory) throw new Error('Categoría no encontrada.');
+    if (!existingCategory) throw new AppError('Categoría no encontrada.', 404);
 
     const updatedCategory = await this.categoryRepository.update(id, {
       name: name || existingCategory.name,

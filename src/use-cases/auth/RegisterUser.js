@@ -1,31 +1,42 @@
+const AppError = require('../../domain/errors/AppError');
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{6,}$/;
+
 class RegisterUser {
   constructor({ userRepository, passwordHasher }) {
     this.userRepository = userRepository;
     this.passwordHasher = passwordHasher;
   }
 
-  async execute({ fullName, email, phone, password }) {
-    const cleanEmail = email.trim().toLowerCase();
-
-    // 1. Validar si el usuario ya existe
-    const existingUser = await this.userRepository.findByEmail(cleanEmail);
-    if (existingUser) {
-      throw new Error('El correo electrónico ya está registrado.');
+  async execute({ fullName, email, phone, password } = {}) {
+    if (!fullName || !email || !phone || !password) {
+      throw new AppError('Todos los campos son requeridos (fullName, email, phone, password).', 400);
     }
 
-    // 2. Hashear la contraseña con BCrypt (RNF-01)
-    const passwordHash = await this.passwordHasher.hash(password);
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      throw new AppError('El correo electrónico no es válido.', 400);
+    }
+    if (!PASSWORD_REGEX.test(String(password))) {
+      throw new AppError('La contraseña debe tener al menos 6 caracteres, una mayúscula y un número.', 400);
+    }
 
-    // 3. Crear usuario con rol CLIENTE por defecto
+    const existingUser = await this.userRepository.findByEmail(cleanEmail);
+    if (existingUser) {
+      throw new AppError('El correo electrónico ya está registrado.', 409);
+    }
+
+    const passwordHash = await this.passwordHasher.hash(String(password));
+
     const newUser = await this.userRepository.create({
-      fullName,
+      fullName: String(fullName).trim(),
       email: cleanEmail,
-      phone,
+      phone: String(phone).trim(),
       passwordHash,
       roleName: 'CLIENT'
     });
 
-    // 4. Retornar DTO limpio sin datos sensibles
     return newUser.toResponse();
   }
 }

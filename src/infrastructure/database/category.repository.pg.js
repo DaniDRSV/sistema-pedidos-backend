@@ -42,19 +42,18 @@ class CategoryRepositoryPG extends ICategoryRepository {
     return new Category(this.mapToEntity(rows[0]));
   }
 
-    async toggleStatus(id) {
+  async toggleStatus(id) {
     const query = `
-        update categories
-        set
-        is_active = not is_active
-        where id = $1
-        returning *
+      UPDATE categories
+      SET is_active = NOT is_active
+      WHERE id = $1
+      RETURNING *;
     `;
 
     const { rows } = await pool.query(query, [id]);
-
-    return rows[0];
-    }
+    if (rows.length === 0) return null;
+    return new Category(this.mapToEntity(rows[0]));
+  }
 
   async countProducts(id) {
     const { rows } = await pool.query('SELECT COUNT(*)::int AS total FROM products WHERE category_id = $1', [id]);

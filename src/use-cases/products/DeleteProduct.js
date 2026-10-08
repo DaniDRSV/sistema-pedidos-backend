@@ -1,3 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
+
 class DeleteProduct {
   constructor({ productRepository }) {
     this.productRepository = productRepository;
@@ -6,9 +8,7 @@ class DeleteProduct {
   async execute(id) {
     const deleted = await this.productRepository.delete(id);
     if (!deleted) {
-      const error = new Error('Producto no encontrado.');
-      error.statusCode = 404;
-      throw error;
+      throw new AppError('Producto no encontrado.', 404);
     }
     return { id: Number(id) };
   }
