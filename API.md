@@ -1,3 +1,31 @@
+# Formato de respuestas
+
+Todas las rutas responden con el mismo formato.
+
+```json
+{ "success": true, "message": "OK", "data": {} }
+{ "success": false, "message": "Stock insuficiente para uno o más productos.", "error": { "code": "CONFLICT", "details": [] } }
+```
+
+| HTTP | `error.code` |
+| --- | --- |
+| 400 | `VALIDATION_ERROR` |
+| 401 | `UNAUTHORIZED` |
+| 403 | `FORBIDDEN` |
+| 404 | `NOT_FOUND` |
+| 409 | `CONFLICT` |
+| 500 | `INTERNAL_ERROR` |
+
+# API de pedidos
+
+| Método y ruta | Rol | Descripción |
+| --- | --- | --- |
+| `POST /api/orders` | `CLIENT` | Crea el pedido. Body: `{ "items": [{ "productId": 1, "quantity": 2 }], "address": "...", "notes": "...", "paymentMethod": "CASH_ON_DELIVERY" }` |
+| `GET /api/orders/me` | `CLIENT` | Pedidos del cliente autenticado. |
+| `GET /api/orders/preparation?status=` | `ADMIN`, `DELIVERY` | Cola de pedidos, filtrable por estado. |
+| `GET /api/orders/:id` | Dueño, repartidor asignado o `ADMIN` | Detalle de un pedido. |
+| `PATCH /api/orders/:id/status` | `ADMIN` | Cambia el estado. Body: `{ "status": "PAGADO", "reason": "..." }`. Al cancelar se devuelve el stock. |
+
 # API de reparto
 
 Todas las rutas de esta sección requieren `Authorization: Bearer <token>`.

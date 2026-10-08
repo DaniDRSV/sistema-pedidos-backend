@@ -1,3 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
+
 class GetCategoryById {
   constructor({ categoryRepository }) {
     this.categoryRepository = categoryRepository;
@@ -5,7 +7,7 @@ class GetCategoryById {
 
   async execute(id) {
     const category = await this.categoryRepository.findById(id);
-    if (!category) throw new Error('Categoría no encontrada.');
+    if (!category) throw new AppError('Categoría no encontrada.', 404);
     return category.toResponse();
   }
 }

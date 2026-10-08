@@ -1,4 +1,5 @@
 const InvalidStateTransitionError = require('../errors/InvalidStateTransitionError');
+const AppError = require('../errors/AppError');
 
 /**
  * Estados del Ciclo de Vida del Pedido (Máquina de Estados Finita)
@@ -97,7 +98,10 @@ class OrderStateMachine {
     const to = this.normalize(toState);
 
     if (!this.isValidState(to)) {
-      throw new Error(`El estado objetivo '${toState}' no es reconocido. Estados válidos: ${Object.values(OrderState).join(', ')}`);
+      throw new AppError(
+        `El estado '${toState}' no es reconocido. Estados válidos: ${Object.values(OrderState).join(', ')}`,
+        400
+      );
     }
 
     if (from === to) {

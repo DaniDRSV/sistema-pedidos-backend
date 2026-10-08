@@ -1,17 +1,11 @@
 const express = require('express');
-const router = express.Router();
-const authController = require('./auth.controller');
-const { authenticate } = require('./middlewares/auth.middleware');
 
-router.post('/login', authController.login);
-router.post('/register', authController.register);
+module.exports = (authController, authenticate) => {
+  const router = express.Router();
 
-// Ejemplo de ruta protegida: requiere Authorization: Bearer <token>
-router.get('/me', authenticate, (req, res) => {
-  return res.status(200).json({
-    success: true,
-    data: req.user
-  });
-});
+  router.post('/login', (req, res) => authController.login(req, res));
+  router.post('/register', (req, res) => authController.register(req, res));
+  router.get('/me', authenticate, (req, res) => authController.me(req, res));
 
-module.exports = router;
+  return router;
+};

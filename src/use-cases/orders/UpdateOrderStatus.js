@@ -1,3 +1,6 @@
+const AppError = require('../../domain/errors/AppError');
+const { OrderState } = require('../../domain/entities/OrderStateMachine');
+
 class UpdateOrderStatus {
   constructor({ orderRepository }) {
     this.orderRepository = orderRepository;
@@ -5,31 +8,27 @@ class UpdateOrderStatus {
 
   async execute({ orderId, status, reason }) {
     if (!status) {
-      const error = new Error("El campo 'status' es obligatorio.");
-      error.statusCode = 400;
-      throw error;
+      throw new AppError("El campo 'status' es obligatorio.", 400);
     }
 
     const order = await this.orderRepository.findById(orderId);
     if (!order) {
-      const error = new Error(`El pedido #${orderId} no fue encontrado.`);
-      error.statusCode = 404;
-      throw error;
+      throw new AppError(`El pedido #${orderId} no fue encontrado.`, 404);
     }
 
-    // Delegación directa a la máquina de estados finita encapsulada en la entidad de dominio
-    order.transitionTo(status);
-    if (reason && order.status === 'CANCELADO') {
+    const target = String(status).trim().toUpperCase();
+    if (target === OrderState.CANCELADO) {
       order.cancel(reason);
+    } else {
+      order.transitionTo(target);
     }
 
-    // Persistir el nuevo estado y metadatos resultantes de la FSM
     const updatedOrder = await this.orderRepository.updateStatus(orderId, order.status, {
       paymentStatus: order.paymentStatus,
       notes: order.notes
     });
 
-    return (updatedOrder || order).toResponse();
+    return updatedOrder.toResponse();
   }
 }
 

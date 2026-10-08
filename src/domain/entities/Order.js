@@ -105,10 +105,11 @@ class Order {
   }
 
   cancel(reason) {
+    this.transitionTo(OrderState.CANCELADO);
     if (reason) {
       this.notes = this.notes ? `${this.notes} | Cancelado: ${reason}` : `Cancelado: ${reason}`;
     }
-    return this.transitionTo(OrderState.CANCELADO);
+    return this;
   }
 
   canTransitionTo(targetState) {

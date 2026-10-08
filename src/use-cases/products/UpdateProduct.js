@@ -1,3 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
+
 class UpdateProduct {
   constructor({ productRepository, categoryRepository }) {
     this.productRepository = productRepository;
@@ -6,16 +8,15 @@ class UpdateProduct {
 
   async execute(id, { categoryId, sku, name, description, price, stock, imageUrl, isActive }) {
     const existingProduct = await this.productRepository.findById(id);
-    if (!existingProduct) throw new Error('Producto no encontrado.');
-    if (price !== undefined && !(Number(price) > 0)) throw new Error('El precio debe ser mayor que 0.');
+    if (!existingProduct) throw new AppError('Producto no encontrado.', 404);
+    if (price !== undefined && !(Number(price) > 0)) throw new AppError('El precio debe ser mayor que 0.', 400);
     if (stock !== undefined && !(Number.isInteger(Number(stock)) && Number(stock) >= 0)) {
-      throw new Error('El stock debe ser un número entero mayor o igual a 0.');
+      throw new AppError('El stock debe ser un número entero mayor o igual a 0.', 400);
     }
 
-    // Si se intenta cambiar la categoría, validamos que la nueva exista
-    if (categoryId && categoryId !== existingProduct.categoryId) {
+    if (categoryId && Number(categoryId) !== Number(existingProduct.categoryId)) {
       const category = await this.categoryRepository.findById(categoryId);
-      if (!category) throw new Error('La nueva categoría especificada no existe.');
+      if (!category) throw new AppError('La nueva categoría especificada no existe.', 400);
     }
 
     const updatedProduct = await this.productRepository.update(id, {

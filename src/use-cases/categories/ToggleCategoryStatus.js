@@ -1,3 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
+
 class ToggleCategoryStatus {
   constructor({ categoryRepository }) {
     this.categoryRepository = categoryRepository;
@@ -7,10 +9,10 @@ class ToggleCategoryStatus {
     const category = await this.categoryRepository.toggleStatus(id);
 
     if (!category) {
-      throw new Error('Categoría no encontrada');
+      throw new AppError('Categoría no encontrada.', 404);
     }
 
-    return category;
+    return category.toResponse();
   }
 }
 

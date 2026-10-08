@@ -1,6 +1,7 @@
 const Order = require('../../domain/entities/Order');
 const IOrderRepository = require('../../domain/repositories/IOrderRepository');
 const pool = require('./postgres');
+const AppError = require('../../domain/errors/AppError');
 
 class OrderRepositoryPG extends IOrderRepository {
   async getDeliveryInfo(clientId, addressId) {
@@ -62,9 +63,7 @@ class OrderRepositoryPG extends IOrderRepository {
           [line.productId, line.quantity]
         );
         if (rowCount === 0) {
-          const error = new Error(`Stock insuficiente para ${line.productName}.`);
-          error.statusCode = 409;
-          throw error;
+          throw new AppError(`Stock insuficiente para ${line.productName}.`, 409);
         }
       }
 
@@ -205,20 +204,16 @@ class OrderRepositoryPG extends IOrderRepository {
         }
       }
 
-      if (paymentStatus) {
-        extraSet += `, payment_status = '${paymentStatus.replace(/'/g, "''")}'`;
-      }
-      if (notes) {
-        extraSet += `, notes = '${notes.replace(/'/g, "''")}'`;
-      }
-
       const updateQuery = `
-        UPDATE orders 
-        SET status = $1 ${extraSet}
+        UPDATE orders
+        SET status = $1,
+            payment_status = COALESCE($3, payment_status),
+            notes = COALESCE($4, notes)
+            ${extraSet}
         WHERE id = $2
         RETURNING *;
       `;
-      const { rows } = await client.query(updateQuery, [newStatus, id]);
+      const { rows } = await client.query(updateQuery, [newStatus, id, paymentStatus || null, notes || null]);
       if (rows.length === 0) {
         await client.query('ROLLBACK');
         return null;
@@ -241,10 +236,10 @@ class OrderRepositoryPG extends IOrderRepository {
       const { rows } = await client.query(
         `UPDATE orders
          SET delivery_id = $1,
-             status = $2,
+             status = $2::varchar,
              payment_status = COALESCE($3, payment_status),
              notes = COALESCE($4, notes),
-             prepared_at = CASE WHEN $2 = 'EN_PREPARACION' THEN COALESCE(prepared_at, CURRENT_TIMESTAMP) ELSE prepared_at END
+             prepared_at = CASE WHEN $2::varchar = 'EN_PREPARACION' THEN COALESCE(prepared_at, CURRENT_TIMESTAMP) ELSE prepared_at END
          WHERE id = $5
          RETURNING id`,
         [deliveryId, newStatus, paymentStatus || null, notes || null, id]

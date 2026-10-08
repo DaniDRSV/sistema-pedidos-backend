@@ -1,3 +1,5 @@
+const { sendSuccess } = require('./response');
+
 class DeliveryController {
   constructor({ getDeliveryCouriers, getMyDeliveryOrders, assignOrderToDelivery, startDelivery, completeDelivery, unassignDelivery }) {
     this.getDeliveryCouriers = getDeliveryCouriers;
@@ -9,63 +11,34 @@ class DeliveryController {
   }
 
   async getCouriers(req, res) {
-    try {
-      res.status(200).json(await this.getDeliveryCouriers.execute());
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    sendSuccess(res, await this.getDeliveryCouriers.execute());
   }
 
   async getMyOrders(req, res) {
-    try {
-      res.status(200).json(await this.getMyDeliveryOrders.execute(req.user.id));
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    sendSuccess(res, await this.getMyDeliveryOrders.execute(req.user.id));
   }
 
   async assign(req, res) {
-    try {
-      res.status(200).json(await this.assignOrderToDelivery.execute({
-        orderId: req.params.id,
-        deliveryId: req.body.deliveryId
-      }));
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    const result = await this.assignOrderToDelivery.execute({
+      orderId: req.params.id,
+      deliveryId: req.body?.deliveryId
+    });
+    sendSuccess(res, result, { message: 'Repartidor asignado' });
   }
 
   async start(req, res) {
-    try {
-      res.status(200).json(await this.startDelivery.execute({
-        orderId: req.params.id,
-        deliveryId: req.user.id
-      }));
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    const result = await this.startDelivery.execute({ orderId: req.params.id, deliveryId: req.user.id });
+    sendSuccess(res, result, { message: 'Pedido en camino' });
   }
 
   async complete(req, res) {
-    try {
-      res.status(200).json(await this.completeDelivery.execute({
-        orderId: req.params.id,
-        deliveryId: req.user.id
-      }));
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    const result = await this.completeDelivery.execute({ orderId: req.params.id, deliveryId: req.user.id });
+    sendSuccess(res, result, { message: 'Pedido entregado' });
   }
 
   async unassign(req, res) {
-    try {
-      res.status(200).json(await this.unassignDelivery.execute({
-        orderId: req.params.id,
-        requester: req.user
-      }));
-    } catch (error) {
-      res.status(error.statusCode || 500).json({ error: error.message });
-    }
+    const result = await this.unassignDelivery.execute({ orderId: req.params.id, requester: req.user });
+    sendSuccess(res, result, { message: 'Asignación retirada' });
   }
 }
 

@@ -8,14 +8,23 @@ const productRoutes = require('./src/infrastructure/web/product.routes');
 const orderRoutes = require('./src/infrastructure/web/order.routes');
 const deliveryRoutes = require('./src/infrastructure/web/delivery.routes');
 
-// Middleware
-const { authenticate, authorizeRoles } = require('./src/infrastructure/web/middlewares/auth.middleware');
+// Middlewares
+const createAuthMiddleware = require('./src/infrastructure/web/middlewares/auth.middleware');
+const { errorHandler, notFoundHandler } = require('./src/infrastructure/web/middlewares/error.middleware');
+
+// Security
+const PasswordHasher = require('./src/infrastructure/security/password.hasher');
+const JwtTokenService = require('./src/infrastructure/security/jwt.token.service');
 
 // Repositories
 const CategoryRepositoryPG = require('./src/infrastructure/database/category.repository.pg');
 const ProductRepositoryPG = require('./src/infrastructure/database/product.repository.pg');
 const OrderRepositoryPG = require('./src/infrastructure/database/order.repository.pg');
 const UserRepositoryPG = require('./src/infrastructure/database/user.repository.pg');
+
+// Use Cases - Auth
+const LoginUser = require('./src/use-cases/auth/LoginUser');
+const RegisterUser = require('./src/use-cases/auth/RegisterUser');
 
 // Use Cases - Categories
 const CreateCategory = require('./src/use-cases/categories/CreateCategory');
@@ -49,6 +58,7 @@ const CompleteDelivery = require('./src/use-cases/delivery/CompleteDelivery');
 const UnassignDelivery = require('./src/use-cases/delivery/UnassignDelivery');
 
 // Controllers
+const AuthController = require('./src/infrastructure/web/auth.controller');
 const CategoryController = require('./src/infrastructure/web/category.controller');
 const ProductController = require('./src/infrastructure/web/product.controller');
 const OrderController = require('./src/infrastructure/web/order.controller');
@@ -64,6 +74,13 @@ const categoryRepository = new CategoryRepositoryPG();
 const productRepository = new ProductRepositoryPG();
 const orderRepository = new OrderRepositoryPG();
 const userRepository = new UserRepositoryPG();
+const passwordHasher = new PasswordHasher();
+const tokenService = new JwtTokenService();
+const { authenticate, authorizeRoles } = createAuthMiddleware(tokenService);
+
+// Use Cases instantiation - Auth
+const loginUser = new LoginUser({ userRepository, passwordHasher, tokenService });
+const registerUser = new RegisterUser({ userRepository, passwordHasher });
 
 // Use Cases instantiation - Categories
 const createCategory = new CreateCategory({ categoryRepository });
@@ -97,6 +114,8 @@ const completeDelivery = new CompleteDelivery({ orderRepository });
 const unassignDelivery = new UnassignDelivery({ orderRepository });
 
 // Controllers instantiation
+const authController = new AuthController({ loginUser, registerUser });
+
 const categoryController = new CategoryController({
   createCategory,
   getCategories,
@@ -141,11 +160,14 @@ app.get('/', (req, res) => {
 });
 
 // Rutas de la API
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes(authController, authenticate));
 app.use('/api/categories', categoryRoutes(categoryController, authenticate, authorizeRoles));
 app.use('/api/products', productRoutes(productController, authenticate, authorizeRoles));
 app.use('/api/orders', orderRoutes(orderController, authenticate, authorizeRoles));
 app.use('/api/deliveries', deliveryRoutes(deliveryController, authenticate, authorizeRoles));
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

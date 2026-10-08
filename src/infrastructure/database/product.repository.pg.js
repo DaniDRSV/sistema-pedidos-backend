@@ -1,6 +1,7 @@
 const Product = require('../../domain/entities/Product');
 const IProductRepository = require('../../domain/repositories/IProductRepository');
 const pool = require('./postgres');
+const AppError = require('../../domain/errors/AppError');
 
 class ProductRepositoryPG extends IProductRepository {
   async create({ categoryId, sku, name, description, price, stock, imageUrl, isActive }) {
@@ -75,9 +76,7 @@ class ProductRepositoryPG extends IProductRepository {
       return rowCount > 0;
     } catch (error) {
       if (error.code === '23503') {
-        const conflict = new Error('No se puede eliminar: el producto tiene pedidos. Desactívelo en su lugar.');
-        conflict.statusCode = 409;
-        throw conflict;
+        throw new AppError('No se puede eliminar: el producto tiene pedidos. Desactívelo en su lugar.', 409);
       }
       throw error;
     }

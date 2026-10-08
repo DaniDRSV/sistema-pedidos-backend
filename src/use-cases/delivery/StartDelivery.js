@@ -1,10 +1,5 @@
+const AppError = require('../../domain/errors/AppError');
 const { OrderState } = require('../../domain/entities/OrderStateMachine');
-
-const fail = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-};
 
 class StartDelivery {
   constructor({ orderRepository }) {
@@ -13,9 +8,9 @@ class StartDelivery {
 
   async execute({ orderId, deliveryId }) {
     const order = await this.orderRepository.findById(Number(orderId));
-    if (!order) throw fail(`El pedido #${orderId} no fue encontrado.`, 404);
+    if (!order) throw new AppError(`El pedido #${orderId} no fue encontrado.`, 404);
     if (Number(order.deliveryId) !== Number(deliveryId)) {
-      throw fail('Este pedido no está asignado al repartidor autenticado.', 403);
+      throw new AppError('Este pedido no está asignado al repartidor autenticado.', 403);
     }
 
     order.transitionTo(OrderState.EN_CAMINO);

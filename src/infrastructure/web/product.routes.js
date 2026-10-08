@@ -25,7 +25,7 @@ module.exports = (productController, authenticate, authorizeRoles) => {
     (req, res) => productController.update(req, res)
   );
 
-  // Eliminación lógica
+  // Eliminación definitiva (409 si tiene pedidos)
   router.delete(
     '/:id',
     authenticate,
