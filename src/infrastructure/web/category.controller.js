@@ -1,58 +1,44 @@
+const { sendSuccess } = require('./response');
+
 class CategoryController {
-  constructor({ createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus }) {
+  constructor({ createCategory, getCategories, getCategoryById, updateCategory, toggleCategoryStatus, deleteCategory }) {
     this.createCategory = createCategory;
     this.getCategories = getCategories;
     this.getCategoryById = getCategoryById;
     this.updateCategory = updateCategory;
     this.toggleCategoryStatus = toggleCategoryStatus;
+    this.deleteCategory = deleteCategory;
   }
 
   async create(req, res) {
-    try {
-      const result = await this.createCategory.execute(req.body);
-      res.status(201).json(result);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    const result = await this.createCategory.execute(req.body);
+    sendSuccess(res, result, { status: 201, message: 'Categoría creada' });
   }
 
   async getAll(req, res) {
-    try {
-      const result = await this.getCategories.execute();
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
+    const result = await this.getCategories.execute({ isActive: req.query.isActive });
+    sendSuccess(res, result);
   }
 
   async getById(req, res) {
-    try {
-      const result = await this.getCategoryById.execute(req.params.id);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(404).json({ error: error.message });
-    }
+    const result = await this.getCategoryById.execute(req.params.id);
+    sendSuccess(res, result);
   }
 
   async update(req, res) {
-    try {
-      const result = await this.updateCategory.execute(req.params.id, req.body);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    const result = await this.updateCategory.execute(req.params.id, req.body);
+    sendSuccess(res, result, { message: 'Categoría actualizada' });
   }
 
-    async toggleStatus(req, res) {
-    try {
-        const result = await this.toggleCategoryStatus.execute(req.params.id);
+  async toggleStatus(req, res) {
+    const result = await this.toggleCategoryStatus.execute(req.params.id);
+    sendSuccess(res, result, { message: 'Estado de la categoría actualizado' });
+  }
 
-        res.status(200).json(result);
-    } catch (error) {
-        res.status(404).json({
-        error: error.message
-        });
-    }
-    }
+  async delete(req, res) {
+    const result = await this.deleteCategory.execute(req.params.id);
+    sendSuccess(res, result, { message: 'Categoría eliminada' });
+  }
 }
+
 module.exports = CategoryController;

@@ -1,63 +1,47 @@
+const { sendSuccess } = require('./response');
+
 class ProductController {
-  constructor({ createProduct, getProducts, getProductById, updateProduct, toggleProductStatus }) {
+  constructor({ createProduct, getProducts, getProductById, updateProduct, toggleProductStatus, deleteProduct }) {
     this.createProduct = createProduct;
     this.getProducts = getProducts;
     this.getProductById = getProductById;
     this.updateProduct = updateProduct;
     this.toggleProductStatus = toggleProductStatus;
+    this.deleteProduct = deleteProduct;
   }
 
   async create(req, res) {
-    try {
-      const result = await this.createProduct.execute(req.body);
-      res.status(201).json(result);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    const result = await this.createProduct.execute(req.body);
+    sendSuccess(res, result, { status: 201, message: 'Producto creado' });
   }
 
   async getAll(req, res) {
-    try {
-      const filters = { 
-        categoryId: req.query.categoryId,
-        isActive: req.query.isActive 
-      };
-      const result = await this.getProducts.execute(filters);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
+    const result = await this.getProducts.execute({
+      categoryId: req.query.categoryId,
+      isActive: req.query.isActive
+    });
+    sendSuccess(res, result);
   }
 
   async getById(req, res) {
-    try {
-      const result = await this.getProductById.execute(req.params.id);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(404).json({ error: error.message });
-    }
+    const result = await this.getProductById.execute(req.params.id);
+    sendSuccess(res, result);
   }
 
   async update(req, res) {
-    try {
-      const result = await this.updateProduct.execute(req.params.id, req.body);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
-    }
+    const result = await this.updateProduct.execute(req.params.id, req.body);
+    sendSuccess(res, result, { message: 'Producto actualizado' });
   }
 
   async toggleStatus(req, res) {
-    try {
-      const result = await this.toggleProductStatus.execute(req.params.id);
+    const result = await this.toggleProductStatus.execute(req.params.id);
+    sendSuccess(res, result, { message: 'Estado del producto actualizado' });
+  }
 
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(404).json({
-        error: error.message
-      });
-    }
+  async delete(req, res) {
+    const result = await this.deleteProduct.execute(req.params.id);
+    sendSuccess(res, result, { message: 'Producto eliminado' });
+  }
 }
-  
-}
+
 module.exports = ProductController;

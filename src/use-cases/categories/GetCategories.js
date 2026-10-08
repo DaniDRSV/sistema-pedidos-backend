@@ -3,8 +3,8 @@ class GetCategories {
     this.categoryRepository = categoryRepository;
   }
 
-  async execute() {
-    const categories = await this.categoryRepository.findAll();
+  async execute(filters = {}) {
+    const categories = await this.categoryRepository.findAll(filters);
     return categories.map(category => category.toResponse());
   }
 }

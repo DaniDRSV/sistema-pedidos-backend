@@ -1,75 +1,39 @@
-const JwtTokenService = require('../../security/jwt.token.service');
+const AppError = require('../../../domain/errors/AppError');
 
-const tokenService = new JwtTokenService();
+const createAuthMiddleware = (tokenService) => {
+  const authenticate = (req, res, next) => {
+    const [scheme, token] = (req.headers.authorization || '').split(' ');
 
-/**
- * Verifica el JWT enviado en: Authorization: Bearer <token>
- *
- * Si el token es válido, deja la información de la sesión disponible
- * en req.user para el controlador o middleware siguiente.
- */
-const authenticate = (req, res, next) => {
-  const authorization = req.headers.authorization;
+    if (scheme !== 'Bearer' || !token) {
+      return next(new AppError('Token de autenticación requerido.', 401));
+    }
 
-  if (!authorization) {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de autenticación requerido'
-    });
-  }
+    try {
+      const payload = tokenService.verifyToken(token);
+      req.user = {
+        id: payload.id,
+        role: payload.role,
+        email: payload.email,
+        fullName: payload.fullName
+      };
+      return next();
+    } catch (error) {
+      const message = error.name === 'TokenExpiredError'
+        ? 'La sesión ha expirado. Inicie sesión nuevamente.'
+        : 'Token de autenticación inválido.';
+      return next(new AppError(message, 401));
+    }
+  };
 
-  const [scheme, token] = authorization.split(' ');
-
-  if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Formato de token inválido. Use: Bearer <token>'
-    });
-  }
-
-  try {
-    const payload = tokenService.verifyToken(token);
-
-    req.user = {
-      id: payload.id,
-      role: payload.role,
-      email: payload.email,
-      fullName: payload.fullName
-    };
-
+  const authorizeRoles = (...allowedRoles) => (req, res, next) => {
+    if (!req.user) return next(new AppError('Token de autenticación requerido.', 401));
+    if (!allowedRoles.includes(req.user.role)) {
+      return next(new AppError('No tiene permisos para realizar esta acción.', 403));
+    }
     return next();
-  } catch (error) {
-    const message = error.name === 'TokenExpiredError'
-      ? 'La sesión ha expirado. Inicie sesión nuevamente'
-      : 'Token de autenticación inválido';
+  };
 
-    return res.status(401).json({
-      success: false,
-      message
-    });
-  }
+  return { authenticate, authorizeRoles };
 };
 
-/**
- * Restringe una ruta autenticada a uno o más roles.
- * Debe usarse después de authenticate.
- */
-const authorizeRoles = (...allowedRoles) => (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de autenticación requerido'
-    });
-  }
-
-  if (!allowedRoles.includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: 'No tiene permisos para realizar esta acción'
-    });
-  }
-
-  return next();
-};
-
-module.exports = { authenticate, authorizeRoles };
+module.exports = createAuthMiddleware;

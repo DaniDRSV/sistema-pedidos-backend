@@ -1,6 +1,7 @@
 const Product = require('../../domain/entities/Product');
 const IProductRepository = require('../../domain/repositories/IProductRepository');
 const pool = require('./postgres');
+const AppError = require('../../domain/errors/AppError');
 
 class ProductRepositoryPG extends IProductRepository {
   async create({ categoryId, sku, name, description, price, stock, imageUrl, isActive }) {
@@ -20,6 +21,11 @@ class ProductRepositoryPG extends IProductRepository {
     if (filters.categoryId) {
       values.push(filters.categoryId);
       query += ` AND category_id = $${values.length}`;
+    }
+
+    if (filters.isActive !== undefined && filters.isActive !== 'all') {
+      values.push(filters.isActive === true || filters.isActive === 'true');
+      query += ` AND is_active = $${values.length}`;
     }
     
     query += ' ORDER BY id DESC';
@@ -62,6 +68,18 @@ class ProductRepositoryPG extends IProductRepository {
     }
 
     return new Product(this.mapToEntity(rows[0]));
+  }
+
+  async delete(id) {
+    try {
+      const { rowCount } = await pool.query('DELETE FROM products WHERE id = $1', [id]);
+      return rowCount > 0;
+    } catch (error) {
+      if (error.code === '23503') {
+        throw new AppError('No se puede eliminar: el producto tiene pedidos. Desactívelo en su lugar.', 409);
+      }
+      throw error;
+    }
   }
 
   mapToEntity(dbRow) {
