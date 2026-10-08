@@ -41,11 +41,12 @@ class OrderRepositoryPG extends IOrderRepository {
 
       const { rows: orderRows } = await client.query(
         `WITH next AS (SELECT nextval('orders_id_seq') AS id)
-         INSERT INTO orders (id, order_number, client_id, address_snapshot, phone_snapshot, subtotal, delivery_fee, total, notes)
-         SELECT id, 'ORD-' || LPAD(id::text, 6, '0'), $1, $2, $3, $4, $5, $6, $7 FROM next
+         INSERT INTO orders (id, order_number, client_id, address_snapshot, phone_snapshot, subtotal, delivery_fee, total, notes, payment_method, payment_status, status)
+         SELECT id, 'ORD-' || LPAD(id::text, 6, '0'), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 FROM next
          RETURNING *`,
         [orderData.clientId, orderData.addressSnapshot, orderData.phoneSnapshot,
-          totals.subtotal, totals.deliveryFee, totals.total, orderData.notes]
+          totals.subtotal, totals.deliveryFee, totals.total, orderData.notes,
+          orderData.paymentMethod, orderData.paymentStatus, orderData.status]
       );
       const order = orderRows[0];
 
@@ -82,15 +83,17 @@ class OrderRepositoryPG extends IOrderRepository {
   async findByClientId(clientId) {
     const { rows } = await pool.query(
       `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        d.full_name AS delivery_name, d.email AS delivery_email, d.phone AS delivery_phone,
         COALESCE(json_agg(json_build_object(
           'productId', i.product_id, 'productName', i.product_name_snapshot,
           'quantity', i.quantity, 'unitPrice', i.unit_price
         ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
        FROM orders o
        LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN users d ON d.id = o.delivery_id
        LEFT JOIN order_items i ON i.order_id = o.id
        WHERE o.client_id = $1
-       GROUP BY o.id, u.full_name, u.email
+       GROUP BY o.id, u.full_name, u.email, d.full_name, d.email, d.phone
        ORDER BY o.created_at DESC`,
       [clientId]
     );
@@ -100,15 +103,17 @@ class OrderRepositoryPG extends IOrderRepository {
   async findById(id) {
     const { rows } = await pool.query(
       `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        d.full_name AS delivery_name, d.email AS delivery_email, d.phone AS delivery_phone,
         COALESCE(json_agg(json_build_object(
           'productId', i.product_id, 'productName', i.product_name_snapshot,
           'quantity', i.quantity, 'unitPrice', i.unit_price
         ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
        FROM orders o
        LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN users d ON d.id = o.delivery_id
        LEFT JOIN order_items i ON i.order_id = o.id
        WHERE o.id = $1
-       GROUP BY o.id, u.full_name, u.email`,
+       GROUP BY o.id, u.full_name, u.email, d.full_name, d.email, d.phone`,
       [id]
     );
     if (rows.length === 0) return null;
@@ -122,21 +127,21 @@ class OrderRepositoryPG extends IOrderRepository {
     if (status && status !== 'ALL') {
       params.push(status.toUpperCase());
       whereClause = 'WHERE o.status = $1';
-    } else {
-      whereClause = "WHERE o.status = ANY(ARRAY['CREADO', 'PAGADO', 'EN_PREPARACION', 'PENDING', 'PREPARING', 'READY'])";
     }
 
     const { rows } = await pool.query(
       `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        d.full_name AS delivery_name, d.email AS delivery_email, d.phone AS delivery_phone,
         COALESCE(json_agg(json_build_object(
           'productId', i.product_id, 'productName', i.product_name_snapshot,
           'quantity', i.quantity, 'unitPrice', i.unit_price
         ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
        FROM orders o
        LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN users d ON d.id = o.delivery_id
        LEFT JOIN order_items i ON i.order_id = o.id
        ${whereClause}
-       GROUP BY o.id, u.full_name, u.email
+       GROUP BY o.id, u.full_name, u.email, d.full_name, d.email, d.phone
        ORDER BY 
          CASE o.status 
            WHEN 'EN_PREPARACION' THEN 1
@@ -151,6 +156,26 @@ class OrderRepositoryPG extends IOrderRepository {
       params
     );
 
+    return rows.map((row) => this.mapToEntity(row, row.items));
+  }
+
+  async findByDeliveryId(deliveryId) {
+    const { rows } = await pool.query(
+      `SELECT o.*, u.full_name AS client_name, u.email AS client_email,
+        d.full_name AS delivery_name, d.email AS delivery_email, d.phone AS delivery_phone,
+        COALESCE(json_agg(json_build_object(
+          'productId', i.product_id, 'productName', i.product_name_snapshot,
+          'quantity', i.quantity, 'unitPrice', i.unit_price
+        ) ORDER BY i.id) FILTER (WHERE i.id IS NOT NULL), '[]') AS items
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.client_id
+       LEFT JOIN users d ON d.id = o.delivery_id
+       LEFT JOIN order_items i ON i.order_id = o.id
+       WHERE o.delivery_id = $1
+       GROUP BY o.id, u.full_name, u.email, d.full_name, d.email, d.phone
+       ORDER BY o.created_at DESC`,
+      [deliveryId]
+    );
     return rows.map((row) => this.mapToEntity(row, row.items));
   }
 
@@ -209,6 +234,43 @@ class OrderRepositoryPG extends IOrderRepository {
     }
   }
 
+  async assignDelivery(id, deliveryId, newStatus, { paymentStatus, notes } = {}) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `UPDATE orders
+         SET delivery_id = $1,
+             status = $2,
+             payment_status = COALESCE($3, payment_status),
+             notes = COALESCE($4, notes),
+             prepared_at = CASE WHEN $2 = 'EN_PREPARACION' THEN COALESCE(prepared_at, CURRENT_TIMESTAMP) ELSE prepared_at END
+         WHERE id = $5
+         RETURNING id`,
+        [deliveryId, newStatus, paymentStatus || null, notes || null, id]
+      );
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query('COMMIT');
+      return this.findById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async clearDeliveryAssignment(id) {
+    const { rowCount } = await pool.query(
+      'UPDATE orders SET delivery_id = NULL WHERE id = $1',
+      [id]
+    );
+    return rowCount > 0 ? this.findById(id) : null;
+  }
+
   mapToEntity(row, items) {
     return new Order({
       id: row.id,
@@ -216,6 +278,10 @@ class OrderRepositoryPG extends IOrderRepository {
       clientId: row.client_id,
       clientName: row.client_name || null,
       clientEmail: row.client_email || null,
+      deliveryId: row.delivery_id,
+      deliveryName: row.delivery_name,
+      deliveryEmail: row.delivery_email,
+      deliveryPhone: row.delivery_phone,
       status: row.status,
       paymentMethod: row.payment_method,
       paymentStatus: row.payment_status,
