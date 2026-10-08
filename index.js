@@ -7,6 +7,7 @@ const categoryRoutes = require('./src/infrastructure/web/category.routes');
 const productRoutes = require('./src/infrastructure/web/product.routes');
 const orderRoutes = require('./src/infrastructure/web/order.routes');
 const deliveryRoutes = require('./src/infrastructure/web/delivery.routes');
+const userRoutes = require('./src/infrastructure/web/user.routes');
 
 // Middlewares
 const createAuthMiddleware = require('./src/infrastructure/web/middlewares/auth.middleware');
@@ -57,12 +58,23 @@ const StartDelivery = require('./src/use-cases/delivery/StartDelivery');
 const CompleteDelivery = require('./src/use-cases/delivery/CompleteDelivery');
 const UnassignDelivery = require('./src/use-cases/delivery/UnassignDelivery');
 
+// Use Cases - Users
+const GetUsers = require('./src/use-cases/users/GetUsers');
+const GetUserById = require('./src/use-cases/users/GetUserById');
+const GetUserOrders = require('./src/use-cases/users/GetUserOrders');
+const CreateUser = require('./src/use-cases/users/CreateUser');
+const UpdateUser = require('./src/use-cases/users/UpdateUser');
+const ToggleUserStatus = require('./src/use-cases/users/ToggleUserStatus');
+const ToggleDeliveryAvailability = require('./src/use-cases/users/ToggleDeliveryAvailability');
+const ResetUserPassword = require('./src/use-cases/users/ResetUserPassword');
+
 // Controllers
 const AuthController = require('./src/infrastructure/web/auth.controller');
 const CategoryController = require('./src/infrastructure/web/category.controller');
 const ProductController = require('./src/infrastructure/web/product.controller');
 const OrderController = require('./src/infrastructure/web/order.controller');
 const DeliveryController = require('./src/infrastructure/web/delivery.controller');
+const UserController = require('./src/infrastructure/web/user.controller');
 
 const app = express();
 
@@ -113,6 +125,16 @@ const startDelivery = new StartDelivery({ orderRepository });
 const completeDelivery = new CompleteDelivery({ orderRepository });
 const unassignDelivery = new UnassignDelivery({ orderRepository });
 
+// Use Cases instantiation - Users
+const getUsers = new GetUsers({ userRepository });
+const getUserById = new GetUserById({ userRepository });
+const getUserOrders = new GetUserOrders({ userRepository, orderRepository });
+const createUser = new CreateUser({ userRepository, passwordHasher });
+const updateUser = new UpdateUser({ userRepository });
+const toggleUserStatus = new ToggleUserStatus({ userRepository });
+const toggleDeliveryAvailability = new ToggleDeliveryAvailability({ userRepository });
+const resetUserPassword = new ResetUserPassword({ userRepository, passwordHasher });
+
 // Controllers instantiation
 const authController = new AuthController({ loginUser, registerUser });
 
@@ -151,6 +173,17 @@ const deliveryController = new DeliveryController({
   unassignDelivery
 });
 
+const userController = new UserController({
+  getUsers,
+  getUserById,
+  getUserOrders,
+  createUser,
+  updateUser,
+  toggleUserStatus,
+  toggleDeliveryAvailability,
+  resetUserPassword
+});
+
 // Ruta raíz de prueba
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -165,6 +198,7 @@ app.use('/api/categories', categoryRoutes(categoryController, authenticate, auth
 app.use('/api/products', productRoutes(productController, authenticate, authorizeRoles));
 app.use('/api/orders', orderRoutes(orderController, authenticate, authorizeRoles));
 app.use('/api/deliveries', deliveryRoutes(deliveryController, authenticate, authorizeRoles));
+app.use('/api/users', userRoutes(userController, authenticate, authorizeRoles));
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -1,7 +1,5 @@
 const AppError = require('../../domain/errors/AppError');
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d).{6,}$/;
+const User = require('../../domain/entities/User');
 
 class RegisterUser {
   constructor({ userRepository, passwordHasher }) {
@@ -15,10 +13,10 @@ class RegisterUser {
     }
 
     const cleanEmail = String(email).trim().toLowerCase();
-    if (!EMAIL_REGEX.test(cleanEmail)) {
+    if (!User.isValidEmail(cleanEmail)) {
       throw new AppError('El correo electrónico no es válido.', 400);
     }
-    if (!PASSWORD_REGEX.test(String(password))) {
+    if (!User.isStrongPassword(password)) {
       throw new AppError('La contraseña debe tener al menos 6 caracteres, una mayúscula y un número.', 400);
     }
 
